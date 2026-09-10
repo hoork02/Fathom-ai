@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          var origFetch = window.fetch;
+          var activeFetch = origFetch;
+          try {
+            Object.defineProperty(window, 'fetch', {
+              get: function() {
+                return function() {
+                  var fn = activeFetch || origFetch;
+                  return fn.apply(window, arguments);
+                };
+              },
+              set: function(fn) {
+                activeFetch = fn;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          } catch (e1) {
+            if (window.Window && window.Window.prototype) {
+              try {
+                Object.defineProperty(window.Window.prototype, 'fetch', {
+                  get: function() {
+                    return function() {
+                      var fn = activeFetch || origFetch;
+                      return fn.apply(window, arguments);
+                    };
+                  },
+                  set: function(fn) {
+                    activeFetch = fn;
+                  },
+                  configurable: true,
+                  enumerable: true
+                });
+              } catch (e2) {}
+            }
+          }
+        } catch (e) {}
+
+        window.addEventListener('error', function(e) {
+          if (e && e.message && e.message.includes('Cannot set property fetch of')) {
+            if (e.preventDefault) e.preventDefault();
+            return true;
+          }
+        });
+      })();
+    </script>
+    <title>Fathom - AI Meeting Notetaker</title>
+    <meta name="description" content="AI meeting notetaker reproducing fathom.video features: real-time call transcription, audio/video playback, smart meeting summaries, custom templates, highlight clipping, and cross-meeting search." />
+    <meta property="og:title" content="Fathom - AI Meeting Notetaker" />
+    <meta property="og:description" content="AI meeting notetaker reproducing fathom.video features: real-time call transcription, audio/video playback, smart meeting summaries, custom templates, highlight clipping, and cross-meeting search." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

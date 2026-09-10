@@ -1,0 +1,6 @@
+{
+  "name": "Fathom - AI Meeting Notetaker",
+  "description": "AI meeting notetaker reproducing fathom.video features: real-time call transcription, audio/video playback, smart meeting summaries, custom templates, highlight clipping, and cross-meeting search.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
