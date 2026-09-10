@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Scissors, Copy, Check, ExternalLink, Play, Pause, X, Share2, Globe } from 'lucide-react';
 import { Meeting, ShareClip } from '../types';
+import { getPublicClipShareUrl } from '../utils/routeHelper';
 
 interface ClipModalProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export const ClipModal: React.FC<ClipModalProps> = ({
       endTime: endTime,
       createdDate: 'Today',
       authorName: 'Sarah Chen',
-      shareUrl: `https://fathom.video/share/${clipId}`,
+      shareUrl: getPublicClipShareUrl(clipId),
       isPublic: true,
     };
 

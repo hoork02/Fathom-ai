@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShareClip } from '../types';
 import { Scissors, Copy, Check, ExternalLink, X, Trash2, Calendar, Clock } from 'lucide-react';
+import { getPublicClipShareUrl } from '../utils/routeHelper';
 
 interface ClipsListModalProps {
   isOpen: boolean;
@@ -26,7 +27,8 @@ export const ClipsListModal: React.FC<ClipsListModalProps> = ({
   };
 
   const handleCopy = (clip: ShareClip) => {
-    navigator.clipboard.writeText(clip.shareUrl);
+    const url = getPublicClipShareUrl(clip.id);
+    navigator.clipboard.writeText(url);
     setCopiedId(clip.id);
     setTimeout(() => setCopiedId(null), 2000);
   };

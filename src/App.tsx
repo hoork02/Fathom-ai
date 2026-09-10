@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   INITIAL_MEETINGS, 
   INITIAL_CALENDAR_EVENTS, 
   INITIAL_CLIPS 
 } from './data/mockMeetings';
 import { Meeting, MeetingHighlight, MeetingSummary, ShareClip, CalendarEvent, HighlightCategory } from './types';
+import { 
+  parseCurrentRoute, 
+  resolveMeetingOrFallback, 
+  getPublicMeetingShareUrl, 
+  updateBrowserUrl 
+} from './utils/routeHelper';
 import { Navbar } from './components/Navbar';
 import { MeetingSidebar } from './components/MeetingSidebar';
 import { MeetingPlayer } from './components/MeetingPlayer';
@@ -28,18 +34,47 @@ import {
   Clock, 
   Users,
   Copy,
-  Check
+  Check,
+  Info,
+  Scissors,
+  X
 } from 'lucide-react';
 
 export function App() {
   const [meetings, setMeetings] = useState<Meeting[]>(INITIAL_MEETINGS);
-  const [selectedMeetingId, setSelectedMeetingId] = useState<string>(INITIAL_MEETINGS[0].id);
+  const [clips, setClips] = useState<ShareClip[]>(INITIAL_CLIPS);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(INITIAL_CALENDAR_EVENTS);
+
+  // Initialize selected meeting based on route
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string>(() => {
+    const route = parseCurrentRoute();
+    const resolution = resolveMeetingOrFallback(route.id, INITIAL_MEETINGS, INITIAL_CLIPS);
+    return resolution.meeting.id;
+  });
+
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'summary' | 'transcript' | 'actions' | 'highlights'>('summary');
   
   // Playback state
-  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<number>(() => {
+    const route = parseCurrentRoute();
+    if (route.timestamp !== null) return route.timestamp;
+    const resolution = resolveMeetingOrFallback(route.id, INITIAL_MEETINGS, INITIAL_CLIPS);
+    return resolution.initialTimestamp;
+  });
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+
+  // Route & Clip indicators
+  const [activeSharedClip, setActiveSharedClip] = useState<ShareClip | null>(() => {
+    const route = parseCurrentRoute();
+    const resolution = resolveMeetingOrFallback(route.id, INITIAL_MEETINGS, INITIAL_CLIPS);
+    return resolution.activeClip;
+  });
+  const [showFallbackNotice, setShowFallbackNotice] = useState<boolean>(() => {
+    const route = parseCurrentRoute();
+    const resolution = resolveMeetingOrFallback(route.id, INITIAL_MEETINGS, INITIAL_CLIPS);
+    return resolution.isFallback;
+  });
 
   // Modals state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -50,12 +85,27 @@ export function App() {
   const [clipRange, setClipRange] = useState<{ start: number; end: number }>({ start: 0, end: 60 });
   const [shareNotice, setShareNotice] = useState<string | null>(null);
 
-  // Calendar & Clips state
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(INITIAL_CALENDAR_EVENTS);
-  const [clips, setClips] = useState<ShareClip[]>(INITIAL_CLIPS);
-
   // Active meeting object
   const currentMeeting = meetings.find((m) => m.id === selectedMeetingId) || meetings[0];
+
+  // Sync route on popstate (browser back/forward or programmatic navigation)
+  const syncRouteState = useCallback(() => {
+    const route = parseCurrentRoute();
+    const resolution = resolveMeetingOrFallback(route.id, meetings, clips);
+    setSelectedMeetingId(resolution.meeting.id);
+    setActiveSharedClip(resolution.activeClip);
+    setShowFallbackNotice(resolution.isFallback);
+    if (route.timestamp !== null) {
+      setCurrentTime(route.timestamp);
+    } else if (resolution.initialTimestamp > 0) {
+      setCurrentTime(resolution.initialTimestamp);
+    }
+  }, [meetings, clips]);
+
+  useEffect(() => {
+    window.addEventListener('popstate', syncRouteState);
+    return () => window.removeEventListener('popstate', syncRouteState);
+  }, [syncRouteState]);
 
   // Playback timer simulation
   useEffect(() => {
@@ -94,7 +144,10 @@ export function App() {
 
   const handleSelectMeeting = (id: string, jumpTimestamp?: number) => {
     setSelectedMeetingId(id);
+    setActiveSharedClip(null);
+    setShowFallbackNotice(false);
     setIsPlaying(false);
+    updateBrowserUrl(`/recording/${id}`);
     if (jumpTimestamp !== undefined) {
       setCurrentTime(jumpTimestamp);
     } else {
@@ -180,8 +233,11 @@ export function App() {
   const handleCompleteRecordedMeeting = (newMeeting: Meeting) => {
     setMeetings((prev) => [newMeeting, ...prev]);
     setSelectedMeetingId(newMeeting.id);
+    setActiveSharedClip(null);
+    setShowFallbackNotice(false);
     setCurrentTime(0);
     setIsPlaying(false);
+    updateBrowserUrl(`/recording/${newMeeting.id}`);
   };
 
   const handleOpenClipModal = (start: number, end: number) => {
@@ -206,9 +262,10 @@ export function App() {
   };
 
   const handleCopyMeetingLink = () => {
-    navigator.clipboard.writeText(`https://fathom.video/recording/${currentMeeting.id}`);
-    setShareNotice('Meeting share link copied to clipboard!');
-    setTimeout(() => setShareNotice(null), 3000);
+    const publicUrl = getPublicMeetingShareUrl(currentMeeting.id);
+    navigator.clipboard.writeText(publicUrl);
+    setShareNotice('Public meeting share link copied to clipboard!');
+    setTimeout(() => setShareNotice(null), 3500);
   };
 
   return (
@@ -230,6 +287,23 @@ export function App() {
         </div>
       )}
 
+      {/* Fallback Mock Data Notification */}
+      {showFallbackNotice && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 rounded-xl bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 text-xs font-medium shadow-2xl flex items-center gap-3 border border-slate-700 animate-in fade-in slide-in-from-top-2">
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/30 text-indigo-400">
+            <Info className="h-3.5 w-3.5" />
+          </div>
+          <span>Displaying sample meeting recording.</span>
+          <button
+            onClick={() => setShowFallbackNotice(false)}
+            className="rounded p-0.5 text-slate-400 hover:text-white transition"
+            aria-label="Dismiss notice"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Main Workspace Layout */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Sidebar: Meeting Directory */}
@@ -244,6 +318,51 @@ export function App() {
 
         {/* Right Main Surface */}
         <main className="flex-1 flex flex-col h-[calc(100vh-61px)] overflow-y-auto bg-slate-100">
+          {/* Active Shared Clip Banner */}
+          {activeSharedClip && (
+            <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-indigo-300">
+                  <Scissors className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-indigo-500/30 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-200">
+                      Shared Clip
+                    </span>
+                    <h3 className="text-xs sm:text-sm font-semibold text-white">
+                      {activeSharedClip.title}
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-indigo-200/80 mt-0.5">
+                    Clip window: {Math.floor(activeSharedClip.startTime / 60)}:{String(Math.floor(activeSharedClip.startTime % 60)).padStart(2, '0')} – {Math.floor(activeSharedClip.endTime / 60)}:{String(Math.floor(activeSharedClip.endTime % 60)).padStart(2, '0')} • Shared by {activeSharedClip.authorName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-center">
+                <button
+                  onClick={() => {
+                    setCurrentTime(activeSharedClip.startTime);
+                    setIsPlaying(true);
+                  }}
+                  className="rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white px-3 py-1.5 text-xs font-bold transition shadow-2xs"
+                >
+                  ▶ Play Clip
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveSharedClip(null);
+                    updateBrowserUrl(`/recording/${currentMeeting.id}`);
+                  }}
+                  className="rounded-lg bg-white/10 hover:bg-white/20 text-indigo-100 px-3 py-1.5 text-xs font-semibold transition"
+                >
+                  View Full Meeting
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Meeting Banner / Header */}
           <div className="border-b border-slate-200 bg-white px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
             <div>
