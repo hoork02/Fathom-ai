@@ -427,6 +427,96 @@ export const INITIAL_MEETINGS: Meeting[] = [
       { id: 'qt-3', speakerId: 'u-self', speakerName: 'You (Current User)', startTime: 61, endTime: 95, text: 'Live transcription latency is sub-500 milliseconds. When this recording completes, the AI summary should generate within 3 seconds.' },
       { id: 'qt-4', speakerId: 'u-self', speakerName: 'You (Current User)', startTime: 96, endTime: 134, text: 'Wrapping up this quick 2-minute calibration call. Everything looks completely ready for the 8-person architecture review.' }
     ]
+  },
+  {
+    id: 'meet-cs-stripe-qbr',
+    title: 'Customer Success QBR — Stripe Enterprise Account Review',
+    date: 'Sep 7, 2026 • 11:00 AM',
+    duration: 2700, // 45 minutes
+    platform: 'teams',
+    category: 'product',
+    tags: ['Customer-Success', 'QBR', 'Enterprise', 'Retention', 'Feedback'],
+    attendees: [
+      { id: 'u-1', name: 'Sarah Chen', role: 'Staff Systems Architect (Host)', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', email: 'sarah.chen@acme.corp', isHost: true },
+      { id: 'u-4', name: 'Priya Sharma', role: 'Product Lead', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80', email: 'priya.sharma@acme.corp' },
+      { id: 's-1', name: 'Dan Miller', role: 'Enterprise Account Executive', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80', email: 'dan@fathom.video' },
+      { id: 'c-1', name: 'Jordan Rivera', role: 'VP Engineering Operations at Stripe', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80', email: 'jordan.rivera@stripe.com' },
+      { id: 'c-2', name: 'Maya Lin', role: 'Director of Developer Productivity at Stripe', avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80', email: 'maya.lin@stripe.com' }
+    ],
+    highlights: [
+      {
+        id: 'cshl-1',
+        timestamp: 320,
+        speakerName: 'Jordan Rivera',
+        category: 'positive_feedback',
+        note: 'Adoption success: Stripe teams logged 1,840 meeting recordings in August with 94% rep satisfaction.',
+        color: 'purple',
+        quote: 'Our engineers are saving nearly an hour a day since Fathom handles the meeting summaries automatically.'
+      },
+      {
+        id: 'cshl-2',
+        timestamp: 1140,
+        speakerName: 'Maya Lin',
+        category: 'concern',
+        note: 'Feature Request: Jira bi-directional ticket creation from highlighted transcript action items.',
+        color: 'rose',
+        quote: 'If we can click an action item and automatically file a Jira issue with the audio clip link attached, that completes the loop.'
+      },
+      {
+        id: 'cshl-3',
+        timestamp: 2100,
+        speakerName: 'Dan Miller',
+        category: 'decision',
+        note: 'Renewal agreement: Stripe commits to multi-year 400-seat contract expansion upon Jira webhook delivery.',
+        color: 'emerald',
+        quote: 'We will include the Jira two-way sync in the Sprint 44 release and execute the 400-seat renewal.'
+      }
+    ],
+    actionItems: [
+      { id: 'csai-1', title: 'Deliver Jira bi-directional webhook integration specification to Stripe eng lead', assigneeName: 'Priya Sharma', completed: false, timestamp: 1160, dueDate: 'Next Monday' },
+      { id: 'csai-2', title: 'Prepare 400-seat multi-year contract paperwork with custom SLA addendum', assigneeName: 'Dan Miller', completed: false, timestamp: 2120, dueDate: 'Friday' },
+      { id: 'csai-3', title: 'Schedule security architecture review for Jira OAuth token rotation', assigneeName: 'Sarah Chen', completed: true, timestamp: 2400, dueDate: 'Completed' }
+    ],
+    summary: {
+      template: 'customer_success',
+      overview: 'Quarterly Business Review with Stripe leadership (Jordan Rivera & Maya Lin). Stellar adoption metrics with 1,840 meetings captured in August. Discussed roadmap priority around Jira bi-directional action item synchronization and finalized 400-seat enterprise expansion.',
+      sections: [
+        {
+          title: '1. Executive Health & Adoption Metrics',
+          points: [
+            'Over 1,840 calls recorded across 18 distributed product pods.',
+            'Engineering satisfaction rating measured at 94% CSAT.',
+            'Average time saved estimated at 4.2 hours per engineer weekly.'
+          ]
+        },
+        {
+          title: '2. Product Feedback & Strategic Requests',
+          points: [
+            'Top request: One-click Jira ticket creation from highlighted transcript items.',
+            'Stripe security requested dedicated audit logs for shared video clips.',
+            'Automated speaker diarization threshold tuning for noisy conference rooms.'
+          ]
+        },
+        {
+          title: '3. Commercial & Contract Expansion',
+          points: [
+            'Stripe confirmed intent to expand from 120 seats to 400 seats across global teams.',
+            'Contract value expands to $192,000 ARR upon Sprint 44 Jira release verification.'
+          ]
+        }
+      ],
+      keyDecisions: [
+        'Prioritized Jira integration into Sprint 44 commitment.',
+        'Stripe greenlit 400-seat contract renewal pending final security addendum.'
+      ],
+      sentiment: 'positive'
+    },
+    transcript: [
+      { id: 'cst-1', speakerId: 'u-1', speakerName: 'Sarah Chen', startTime: 0, endTime: 20, text: 'Welcome Jordan and Maya to our Q3 Business Review. We are thrilled to examine how your teams at Stripe have utilized Fathom over the past quarter.' },
+      { id: 'cst-2', speakerId: 'c-1', speakerName: 'Jordan Rivera', startTime: 21, endTime: 65, text: 'Thanks Sarah. The feedback from our engineering org has been overwhelmingly positive. We recorded over 1,800 meetings last month, and managers love having instant searchable transcripts instead of fragmented notes.' },
+      { id: 'cst-3', speakerId: 'c-2', speakerName: 'Maya Lin', startTime: 66, endTime: 110, text: 'The single biggest request from our scrum leads is direct Jira integration. When an engineer commits to an action item in standup, they want that task to sync to their sprint backlog with the clip attached.' },
+      { id: 'cst-4', speakerId: 'u-4', speakerName: 'Priya Sharma', startTime: 111, endTime: 155, text: 'We have that exact Jira bi-directional webhook scheduled for our Sprint 44 release next month, Maya. We can provide your developer productivity team with early sandbox access next week.' }
+    ]
   }
 ];
 
