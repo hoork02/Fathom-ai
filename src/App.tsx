@@ -107,6 +107,16 @@ export function App() {
     return () => window.removeEventListener('popstate', syncRouteState);
   }, [syncRouteState]);
 
+  // Auto-dismiss the sample meeting notice toast after 6 seconds
+  useEffect(() => {
+    if (showFallbackNotice) {
+      const timer = setTimeout(() => {
+        setShowFallbackNotice(false);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [showFallbackNotice]);
+
   // Playback timer simulation
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;

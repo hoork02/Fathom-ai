@@ -162,7 +162,7 @@ User Question: ${question}`;
   });
 
   // Public Recording, Share, and Clip dynamic routes (guaranteeing 200 OK SPA delivery without 404)
-  app.get(["/recording/:id", "/share/:id", "/clip/:id", "/recording", "/share", "/clip"], (req, res, next) => {
+  app.get(["/recording/:id", "/share/:id", "/clip/:id", "/recording/*", "/share/*", "/clip/*", "/recording", "/share", "/clip"], (req, res, next) => {
     if (process.env.NODE_ENV === "production") {
       const distPath = path.join(process.cwd(), "dist");
       return res.sendFile(path.join(distPath, "index.html"));

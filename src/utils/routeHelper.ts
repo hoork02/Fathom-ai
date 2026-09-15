@@ -53,7 +53,7 @@ export function parseCurrentRoute(): {
     return { routeType: 'share', id: decodeURIComponent(queryId), timestamp };
   }
 
-  // Parse path segments: /recording/:id, /share/:id, /clip/:id
+  // Parse path segments: /recording/:id, /share/:id, /clip/:id, or deep /custom/nested/paths
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length >= 2) {
     const prefix = segments[0].toLowerCase();
@@ -68,8 +68,11 @@ export function parseCurrentRoute(): {
     if (prefix === 'clip' || prefix === 'clips') {
       return { routeType: 'clip', id, timestamp };
     }
+
+    // Deep arbitrary or unhandled path (e.g. /teams/archive/meeting-123 or /deep/path)
+    return { routeType: 'share', id: decodeURIComponent(segments.join('/')), timestamp };
   } else if (segments.length === 1) {
-    // e.g. /meet-8person-arch or /clip-strangler-fig
+    // e.g. /meet-8person-arch or /clip-strangler-fig or /unknown
     const segment = decodeURIComponent(segments[0]);
     if (segment !== '' && segment !== 'index.html') {
       return { routeType: 'share', id: segment, timestamp };
