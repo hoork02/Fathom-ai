@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   INITIAL_MEETINGS, 
   INITIAL_CALENDAR_EVENTS, 
@@ -33,17 +33,26 @@ import {
   Calendar, 
   Clock, 
   Users,
-  Copy,
+  Copy, 
   Check,
   Info,
   Scissors,
-  X
+  X,
+  Download,
+  ChevronDown,
+  ListChecks,
+  FileCode
 } from 'lucide-react';
 
 export function App() {
   const [meetings, setMeetings] = useState<Meeting[]>(INITIAL_MEETINGS);
   const [clips, setClips] = useState<ShareClip[]>(INITIAL_CLIPS);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(INITIAL_CALENDAR_EVENTS);
+
+  // Post-meeting action bar states
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+  const [hasCopiedActions, setHasCopiedActions] = useState<boolean>(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // Initialize selected meeting based on route
   const [selectedMeetingId, setSelectedMeetingId] = useState<string>(() => {
@@ -278,6 +287,127 @@ export function App() {
     setTimeout(() => setShareNotice(null), 3500);
   };
 
+  // Click-outside handler for Export Transcript dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    }
+    if (isExportMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isExportMenuOpen]);
+
+  // Formats all action items & key decisions as markdown and copies with visual confirmation
+  const handleCopyActionItemsMarkdown = () => {
+    const keyDecisions = currentMeeting.summary.keyDecisions || [];
+    let md = `# Action Items & Key Decisions\n`;
+    md += `**Meeting:** ${currentMeeting.title}\n`;
+    md += `**Date:** ${currentMeeting.date} | **Platform:** ${currentMeeting.platform.toUpperCase()} | **Duration:** ${Math.round(currentMeeting.duration / 60)} min\n\n`;
+
+    if (keyDecisions.length > 0) {
+      md += `## 🎯 Key Decisions\n`;
+      keyDecisions.forEach((decision) => {
+        md += `- ${decision}\n`;
+      });
+      md += `\n`;
+    }
+
+    md += `## ✅ Action Items\n`;
+    if (!currentMeeting.actionItems || currentMeeting.actionItems.length === 0) {
+      md += `_No action items recorded for this call._\n`;
+    } else {
+      currentMeeting.actionItems.forEach((ai) => {
+        const check = ai.completed ? '[x]' : '[ ]';
+        const time = ai.timestamp
+          ? ` (at ${Math.floor(ai.timestamp / 60)}:${String(Math.floor(ai.timestamp % 60)).padStart(2, '0')})`
+          : '';
+        md += `- ${check} **${ai.title}** (@${ai.assigneeName}) — Due: ${ai.dueDate || 'Unscheduled'}${time}\n`;
+      });
+    }
+
+    navigator.clipboard.writeText(md);
+    setHasCopiedActions(true);
+    setShareNotice('Action items & decisions copied to clipboard as Markdown!');
+    setTimeout(() => setHasCopiedActions(false), 2500);
+    setTimeout(() => setShareNotice(null), 3500);
+  };
+
+  // Exports meeting transcript directly as .txt or .json without backend calls
+  const handleExportTranscript = (format: 'txt' | 'json') => {
+    setIsExportMenuOpen(false);
+    const safeSlug = currentMeeting.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '') || 'meeting';
+
+    if (format === 'txt') {
+      const attendeesList = currentMeeting.attendees.map((a) => `${a.name} (${a.role})`).join(', ');
+      let content = `================================================================================\n`;
+      content += `TRANSCRIPT: ${currentMeeting.title}\n`;
+      content += `Date: ${currentMeeting.date}\n`;
+      content += `Duration: ${Math.round(currentMeeting.duration / 60)} minutes\n`;
+      content += `Platform: ${currentMeeting.platform.toUpperCase()}\n`;
+      content += `Attendees: ${attendeesList}\n`;
+      content += `================================================================================\n\n`;
+
+      currentMeeting.transcript.forEach((t) => {
+        const mins = Math.floor(t.startTime / 60);
+        const secs = Math.floor(t.startTime % 60);
+        const timeFormatted = `[${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}]`;
+        content += `${timeFormatted} ${t.speakerName}:\n${t.text}\n\n`;
+      });
+
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${safeSlug}-transcript.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setShareNotice('Transcript exported as plain text (.txt)');
+      setTimeout(() => setShareNotice(null), 3500);
+    } else {
+      const exportData = {
+        meetingId: currentMeeting.id,
+        title: currentMeeting.title,
+        date: currentMeeting.date,
+        durationSeconds: currentMeeting.duration,
+        platform: currentMeeting.platform,
+        exportedAt: new Date().toISOString(),
+        attendees: currentMeeting.attendees,
+        summary: currentMeeting.summary,
+        transcript: currentMeeting.transcript.map((t) => ({
+          id: t.id,
+          speakerName: t.speakerName,
+          speakerId: t.speakerId,
+          startTime: t.startTime,
+          endTime: t.endTime,
+          formattedTimestamp: `${Math.floor(t.startTime / 60)}:${String(Math.floor(t.startTime % 60)).padStart(2, '0')}`,
+          text: t.text,
+        })),
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${safeSlug}-transcript.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setShareNotice('Transcript exported as JSON (.json)');
+      setTimeout(() => setShareNotice(null), 3500);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans antialiased text-slate-900">
       {/* Top Navigation */}
@@ -416,18 +546,91 @@ export function App() {
               </div>
             </div>
 
-            {/* Actions: Share & Clip */}
-            <div className="flex items-center gap-2.5 self-start sm:self-center">
+            {/* Actions: Export Transcript, Copy Action Items, Clip & Share */}
+            <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
+              {/* Copy Action Items Button */}
+              <button
+                onClick={handleCopyActionItemsMarkdown}
+                className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition shadow-2xs ${
+                  hasCopiedActions
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+                title="Format and copy all action items & key decisions as Markdown"
+              >
+                {hasCopiedActions ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Copied Markdown!</span>
+                  </>
+                ) : (
+                  <>
+                    <ListChecks className="h-3.5 w-3.5 text-slate-500" />
+                    <span>Copy Action Items</span>
+                  </>
+                )}
+              </button>
+
+              {/* Export Transcript Dropdown */}
+              <div className="relative" ref={exportMenuRef}>
+                <button
+                  onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                  title="Download transcript as Plain Text or JSON"
+                  aria-expanded={isExportMenuOpen}
+                >
+                  <Download className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Export Transcript</span>
+                  <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isExportMenuOpen && (
+                  <div className="absolute right-0 mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl z-30 animate-in fade-in slide-in-from-top-1">
+                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                      Choose Export Format
+                    </div>
+                    <button
+                      onClick={() => handleExportTranscript('txt')}
+                      className="w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-slate-400" />
+                        <div>
+                          <p className="font-semibold leading-none text-slate-800">Plain Text (.txt)</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Speaker names & timestamps</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1 py-0.5 rounded">TXT</span>
+                    </button>
+                    <button
+                      onClick={() => handleExportTranscript('json')}
+                      className="w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileCode className="h-4 w-4 text-slate-400" />
+                        <div>
+                          <p className="font-semibold leading-none text-slate-800">JSON Format (.json)</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Structured diarized objects</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1 py-0.5 rounded">JSON</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Clip Moment */}
               <button
                 onClick={() => handleOpenClipModal(Math.max(0, currentTime - 15), Math.min(currentMeeting.duration, currentTime + 30))}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
               >
                 <span>✂ Clip Moment</span>
               </button>
 
+              {/* Share Recording */}
               <button
                 onClick={handleCopyMeetingLink}
-                className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs"
+                className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs"
               >
                 <Share2 className="h-3.5 w-3.5" />
                 <span>Share Recording</span>

@@ -48,13 +48,31 @@ export const ActionItemsView: React.FC<ActionItemsViewProps> = ({
   };
 
   const handleCopyActionItems = () => {
-    let text = `Action Items from: ${meeting.title}\n\n`;
-    meeting.actionItems.forEach((ai) => {
-      text += `[${ai.completed ? 'x' : ' '}] ${ai.title} (@${ai.assigneeName}) - Due: ${ai.dueDate || 'ASAP'}\n`;
-    });
+    const keyDecisions = meeting.summary.keyDecisions || [];
+    let text = `# Action Items & Key Decisions\n`;
+    text += `**Meeting:** ${meeting.title}\n`;
+    text += `**Date:** ${meeting.date} | **Platform:** ${meeting.platform.toUpperCase()} | **Duration:** ${Math.round(meeting.duration / 60)} min\n\n`;
+
+    if (keyDecisions.length > 0) {
+      text += `## 🎯 Key Decisions\n`;
+      keyDecisions.forEach((d) => {
+        text += `- ${d}\n`;
+      });
+      text += `\n`;
+    }
+
+    text += `## ✅ Action Items\n`;
+    if (!meeting.actionItems || meeting.actionItems.length === 0) {
+      text += `_No action items recorded for this call._\n`;
+    } else {
+      meeting.actionItems.forEach((ai) => {
+        text += `- [${ai.completed ? 'x' : ' '}] **${ai.title}** (@${ai.assigneeName}) — Due: ${ai.dueDate || 'Unscheduled'}\n`;
+      });
+    }
+
     navigator.clipboard.writeText(text);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   const handleExport = (platform: 'Slack' | 'Notion' | 'Salesforce') => {
