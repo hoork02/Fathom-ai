@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Copy, 
@@ -25,10 +25,16 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
   onSeek,
 }) => {
   const [selectedTemplate, setSelectedTemplate] = useState<SummaryTemplateType>(meeting.summary.template);
+  const [isSwitchingTemplate, setIsSwitchingTemplate] = useState<boolean>(false);
   const [customPrompt, setCustomPrompt] = useState('');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+
+  // Sync selected template when meeting or summary updates
+  useEffect(() => {
+    setSelectedTemplate(meeting.summary.template);
+  }, [meeting.id, meeting.summary.template]);
 
   // Ask AI about this meeting state
   const [question, setQuestion] = useState('');
@@ -205,19 +211,24 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
     }
   };
 
-  const handleTemplateChange = async (tmpl: SummaryTemplateType) => {
+  const handleTemplateChange = (tmpl: SummaryTemplateType) => {
     setSelectedTemplate(tmpl);
     if (tmpl === 'custom') {
       setShowCustomModal(true);
       return;
     }
 
-    // Instantly update UI with specialized template layout
-    const prebuilt = getPrebuiltTemplateSummary(tmpl, meeting);
-    onUpdateSummary(prebuilt);
+    // Trigger smooth transition state with loading skeleton before rendering new structured summary
+    setIsSwitchingTemplate(true);
 
-    // Call server to regenerate summary with this template via Gemini
-    await generateTemplateSummary(tmpl);
+    setTimeout(async () => {
+      const prebuilt = getPrebuiltTemplateSummary(tmpl, meeting);
+      onUpdateSummary(prebuilt);
+      setIsSwitchingTemplate(false);
+
+      // Call server to regenerate summary with this template via Gemini
+      await generateTemplateSummary(tmpl);
+    }, 450);
   };
 
   const generateTemplateSummary = async (tmpl: SummaryTemplateType, promptOverride?: string) => {
@@ -345,10 +356,17 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
             ))}
           </select>
 
-          {isGenerating && (
+          {isSwitchingTemplate && (
+            <span className="flex items-center gap-1.5 text-[11px] text-indigo-600 font-semibold animate-pulse ml-1">
+              <Sparkles className="h-3 w-3 animate-spin text-indigo-500" />
+              Applying template...
+            </span>
+          )}
+
+          {!isSwitchingTemplate && isGenerating && (
             <span className="flex items-center gap-1 text-[11px] text-indigo-600 font-medium animate-pulse ml-1">
               <RefreshCw className="h-3 w-3 animate-spin" />
-              Re-generating...
+              Refining with Gemini...
             </span>
           )}
         </div>
@@ -357,16 +375,18 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => generateTemplateSummary(selectedTemplate)}
-            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+            disabled={isSwitchingTemplate}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition shadow-2xs"
             title="Re-run AI summarization"
           >
-            <RefreshCw className={`h-3.5 w-3.5 text-slate-500 ${isGenerating ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 text-slate-500 ${isGenerating || isSwitchingTemplate ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
           <button
             onClick={handleCopySummaryMarkdown}
-            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-2xs"
+            disabled={isSwitchingTemplate}
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition shadow-2xs"
           >
             {copiedSummary ? (
               <>
@@ -385,64 +405,130 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
 
       {/* Main Content Area: Scrollable summary + Ask AI Drawer */}
       <div className="flex-1 overflow-y-auto p-5 space-y-6">
-        {/* Executive Overview Card */}
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-800">
-              Meeting Synthesis
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal">
-            {meeting.summary.overview}
-          </p>
-        </div>
+        {isSwitchingTemplate ? (
+          /* Subtle UI Loading Skeleton during template transition */
+          <div className="space-y-6 animate-pulse" aria-busy="true" aria-label="Loading summary template">
+            {/* Executive Overview Card Skeleton */}
+            <div className="rounded-xl border border-indigo-100/70 bg-indigo-50/30 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-3.5 w-32 rounded-md bg-indigo-200/70" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-3.5 w-full rounded bg-slate-200/80" />
+                <div className="h-3.5 w-11/12 rounded bg-slate-200/70" />
+                <div className="h-3.5 w-4/5 rounded bg-slate-200/60" />
+              </div>
+            </div>
 
-        {/* Key Decisions Banner */}
-        {meeting.summary.keyDecisions && meeting.summary.keyDecisions.length > 0 && (
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
-              <CheckSquare className="h-3.5 w-3.5 text-emerald-600" />
-              Key Decisions Ratified
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {meeting.summary.keyDecisions.map((dec, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3"
-                >
-                  <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
-                    ✓
+            {/* Key Decisions Skeleton */}
+            <div className="space-y-2.5">
+              <div className="h-3.5 w-40 rounded bg-slate-200" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="flex items-start gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+                  <div className="h-4 w-4 rounded-full bg-emerald-200/80 shrink-0 mt-0.5" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="h-3 w-full rounded bg-emerald-200/60" />
+                    <div className="h-3 w-2/3 rounded bg-emerald-200/50" />
                   </div>
-                  <span className="text-xs font-medium text-emerald-950 leading-snug">
-                    {dec}
-                  </span>
+                </div>
+                <div className="flex items-start gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+                  <div className="h-4 w-4 rounded-full bg-emerald-200/80 shrink-0 mt-0.5" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="h-3 w-11/12 rounded bg-emerald-200/60" />
+                    <div className="h-3 w-3/4 rounded bg-emerald-200/50" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Structured Sections Skeleton */}
+            <div className="space-y-4">
+              {[1, 2].map((num) => (
+                <div key={num} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-5 rounded-md bg-slate-200" />
+                    <div className={`h-4 rounded bg-slate-200 ${num === 1 ? 'w-48' : 'w-56'}`} />
+                  </div>
+                  <div className="space-y-2 pl-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-300 shrink-0" />
+                      <div className="h-3 w-5/6 rounded bg-slate-100" />
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-300 shrink-0" />
+                      <div className="h-3 w-11/12 rounded bg-slate-100" />
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-300 shrink-0" />
+                      <div className="h-3 w-3/4 rounded bg-slate-100" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6 transition-opacity duration-300 ease-in-out">
+            {/* Executive Overview Card */}
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-800">
+                  Meeting Synthesis
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal">
+                {meeting.summary.overview}
+              </p>
+            </div>
+
+            {/* Key Decisions Banner */}
+            {meeting.summary.keyDecisions && meeting.summary.keyDecisions.length > 0 && (
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+                  <CheckSquare className="h-3.5 w-3.5 text-emerald-600" />
+                  Key Decisions Ratified
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {meeting.summary.keyDecisions.map((dec, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3"
+                    >
+                      <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
+                        ✓
+                      </div>
+                      <span className="text-xs font-medium text-emerald-950 leading-snug">
+                        {dec}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Structured Sections */}
+            <div className="space-y-4">
+              {meeting.summary.sections.map((section, idx) => (
+                <div key={idx} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 mb-2.5 flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-slate-100 text-xs text-slate-600 font-mono">
+                      {idx + 1}
+                    </span>
+                    <span>{section.title}</span>
+                  </h4>
+                  <ul className="space-y-2">
+                    {section.points.map((pt, pIdx) => (
+                      <li key={pIdx} className="flex items-start gap-2 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />
+                        <span>{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             </div>
           </div>
         )}
-
-        {/* Structured Sections */}
-        <div className="space-y-4">
-          {meeting.summary.sections.map((section, idx) => (
-            <div key={idx} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 mb-2.5 flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-slate-100 text-xs text-slate-600 font-mono">
-                  {idx + 1}
-                </span>
-                <span>{section.title}</span>
-              </h4>
-              <ul className="space-y-2">
-                {section.points.map((pt, pIdx) => (
-                  <li key={pIdx} className="flex items-start gap-2 text-xs sm:text-sm text-slate-600 leading-relaxed">
-                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />
-                    <span>{pt}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
 
         {/* Ask Fathom AI about this Meeting Drawer */}
         <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">

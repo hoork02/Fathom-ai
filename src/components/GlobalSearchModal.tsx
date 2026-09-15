@@ -24,6 +24,38 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  /**
+   * Visually highlights matching search terms with a styled amber highlight badge
+   */
+  const highlightText = (text: string, highlight: string) => {
+    if (!highlight || !highlight.trim()) {
+      return text;
+    }
+    const cleanHighlight = highlight.trim();
+    const escaped = cleanHighlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const parts = text.split(regex);
+
+    if (parts.length <= 1) return text;
+
+    return (
+      <>
+        {parts.map((part, idx) =>
+          part.toLowerCase() === cleanHighlight.toLowerCase() ? (
+            <mark
+              key={idx}
+              className="rounded-xs bg-amber-200/90 px-0.5 font-semibold text-amber-950"
+            >
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
+  };
+
   const results = useMemo(() => {
     if (!query.trim()) return [];
 
@@ -45,7 +77,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             type: 'meeting',
             meeting: m,
             title: m.title,
-            snippet: m.summary.overview.slice(0, 140) + '...',
+            snippet: m.summary.overview.slice(0, 150) + (m.summary.overview.length > 150 ? '...' : ''),
           });
         }
       }
@@ -214,14 +246,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-slate-900 group-hover:text-indigo-700">
-                        {hit.title}
+                        {highlightText(hit.title, query)}
                       </span>
                       <span className="text-[11px] text-slate-400">
-                        in <span className="text-slate-600 font-medium">{hit.meeting.title}</span>
+                        in <span className="text-slate-600 font-medium">{highlightText(hit.meeting.title, query)}</span>
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                      {hit.snippet}
+                      {highlightText(hit.snippet, query)}
                     </p>
                   </div>
                 </div>

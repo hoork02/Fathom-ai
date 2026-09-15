@@ -29,6 +29,28 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  const highlightText = (text: string, highlight: string) => {
+    if (!highlight || !highlight.trim()) return text;
+    const clean = highlight.trim();
+    const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const parts = text.split(regex);
+    if (parts.length <= 1) return text;
+    return (
+      <>
+        {parts.map((part, idx) =>
+          part.toLowerCase() === clean.toLowerCase() ? (
+            <mark key={idx} className="rounded-xs bg-amber-200/90 px-0.5 font-semibold text-amber-950">
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
+  };
+
   // Find active utterance
   const activeUtterance = meeting.transcript.find(
     (t) => currentTime >= t.startTime && currentTime <= t.endTime
@@ -151,7 +173,7 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({
 
                 {/* Utterance Text */}
                 <p className={`text-xs sm:text-sm leading-relaxed ${isActive ? 'text-slate-900 font-medium' : 'text-slate-600'}`}>
-                  {utterance.text}
+                  {highlightText(utterance.text, searchQuery)}
                 </p>
 
                 {/* Hover Action Floating Bar */}
